@@ -1,0 +1,124 @@
+clear all
+%close all
+clc
+% S1
+S2_P50_1=readmatrix('pull_01_stiff-flop_1_1');
+S2_P50_2=readmatrix('pull_01_stiff-flop_2_1');
+S2_P50_3=readmatrix('pull_01_stiff-flop_3_1');
+
+S2_P100_1=readmatrix('pull_01_stiff-flop_4_1');
+S2_P100_2=readmatrix('pull_01_stiff-flop_5_1');
+S2_P100_3=readmatrix('pull_01_stiff-flop_6_1');
+
+S2_P150_1=readmatrix('pull_01_stiff-flop_7_1');
+S2_P150_2=readmatrix('pull_01_stiff-flop_8_1');
+S2_P150_3=readmatrix('pull_01_stiff-flop_9_1');
+
+S2_P200_1=readmatrix('pull_01_stiff-flop_10_1');
+S2_P200_2=readmatrix('pull_01_stiff-flop_11_1');
+S2_P200_3=readmatrix('pull_01_stiff-flop_12_1');
+
+S1_P200_1=readmatrix('push01_stiff-flop_1_1');
+S1_P200_2=readmatrix('push01_stiff-flop_2_1');
+S1_P200_3=readmatrix('push01_stiff-flop_3_1');
+
+S1_P150_1=readmatrix('push01_stiff-flop_4_1');
+S1_P150_2=readmatrix('push01_stiff-flop_5_1');
+S1_P150_3=readmatrix('push01_stiff-flop_6_1');
+
+S1_P100_1=readmatrix('push01_stiff-flop_7_1');
+S1_P100_2=readmatrix('push01_stiff-flop_8_1');
+S1_P100_3=readmatrix('push01_stiff-flop_9_1');
+
+S1_P50_1=readmatrix('push01_stiff-flop_10_1');
+S1_P50_2=readmatrix('push01_stiff-flop_11_1');
+S1_P50_3=readmatrix('push01_stiff-flop_12_1');
+
+
+%% mean
+S2_P200=[max(S1_P200_1(:,3)),max(S1_P200_1(:,3)),max(S1_P200_1(:,3))];
+S2_P150 =[max(S1_P150_1(:,3)),max(S1_P150_2(:,3)), max(S1_P150_3(:,3))];
+S2_P100 =[max(S1_P100_1(:,3)),max(S1_P100_2(:,3)), max(S1_P100_3(:,3))];
+S2_P50 =[max(S1_P50_1(:,3)),max(S1_P50_2(:,3)), max(S1_P50_3(:,3))];
+
+S1_P50=[min(S2_P50_1(:,3)),min(S2_P50_2(:,3)),min(S2_P50_3(:,3))];
+S1_P100=[min(S2_P100_1(:,3)),min(S2_P100_2(:,3)),min(S2_P100_3(:,3))];
+S1_P150=[min(S2_P150_1(:,3)),min(S2_P150_2(:,3)),min(S2_P150_3(:,3))];
+S1_P200=[min(S2_P200_1(:,3)),min(S2_P200_2(:,3)),min(S2_P200_3(:,3))];
+
+S1_P50M= mean(S1_P50,2);
+S1_P100M = mean(S1_P100,2);
+S1_P150M = mean(S1_P150,2);
+S1_P200M = mean(S1_P200,2);
+
+S2_P50M = mean(S2_P50,2);
+S2_P100M = mean(S2_P100,2);
+S2_P150M = mean(S2_P150,2);
+S2_P200M = mean(S2_P200,2);
+
+S1_P50S=std(S1_P50,0,2);
+S1_P100S=std(S1_P100,0,2);
+S1_P150S=std(S1_P150,0,2);
+S1_P200S=std(S1_P200,0,2);
+
+S2_P50S=std(S2_P50,0,2);
+S2_P100S=std(S2_P100,0,2);
+S2_P150S=std(S2_P150,0,2);
+S2_P200S=std(S2_P200,0,2);
+
+%% graph
+
+ 
+figure(1)
+hold on
+x = 50:50:200;
+data = [-S1_P50M -S1_P100M -S1_P150M -S1_P150M]';
+errhigh = [S1_P50S S1_P100S S1_P150S S1_P150S];
+errlow  = [S1_P50S S1_P100S S1_P150S S1_P150S];
+
+bar(x,data,'b')                
+
+hold on
+
+er = errorbar(x,data,errlow,errhigh,"CapSize",20);    
+er.Color = [0 0 0];                            
+er.LineStyle = 'none';  
+
+hold off
+
+xlabel('Pressure [kPa]')
+ylabel('Pushing Force [N]')
+
+  xlim([0 250]);
+  ylim([0 7]);
+  
+
+
+set(gca, 'YGrid', 'on', 'XGrid', 'off');
+xticks([50,100,150,200]);
+
+figure (2)
+hold on
+x = 50:50:200;
+data = [S2_P50M S2_P100M S2_P150M S2_P150M]';
+errhigh = [S2_P50S S2_P100S S2_P150S S2_P150S];
+errlow  = [S2_P50S S2_P100S S2_P150S S2_P150S];
+
+bar(x,data,'r')                
+
+hold on
+
+er = errorbar(x,data,errlow,errhigh,"CapSize",20);    
+er.Color = [0 0 0];                            
+er.LineStyle = 'none';  
+
+hold off
+
+xlabel('Pressure [kPa]')
+ylabel('Pulling Force [N]')
+
+  xlim([0 250]);
+  ylim([0 7]);
+xticks([50,100,150,200]);
+
+set(gca, 'YGrid', 'on', 'XGrid', 'off');
