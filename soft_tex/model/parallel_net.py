@@ -94,14 +94,14 @@ class ParallelSoftSensingLSTM(nn.Module):
         if history == None:
             history = {'training_losses': [], 'validation_losses': []}
 
-        progress_epoch_bar = tqdm(range(n_epochs))
+        progress_epoch_bar = tqdm(range(n_epochs), desc='training', leave=False)
         for epoch in progress_epoch_bar:
             self.train() # sets the module in training mode
             self.reset_states() # reset network hidden states at the beginning of each time-series
 
             # apply noise to input
-            X_noise = th.Tensor(np.random.normal(loc=0, scale=X_noise_scale, size=(X.shape))).detach()
-            Y_noise = th.Tensor(np.random.normal(loc=0, scale=Y_noise_scale, size=(Y.shape))).detach()
+            X_noise = th.Tensor(np.random.normal(loc=0, scale=X_noise_scale, size=(X.shape))).detach().to(self.device)
+            Y_noise = th.Tensor(np.random.normal(loc=0, scale=Y_noise_scale, size=(Y.shape))).detach().to(self.device)
 
             # learn on one time series
             series_losses = self._train_series(X + X_noise, Y + Y_noise, loss_fn, optimizer)
@@ -148,7 +148,7 @@ class ParallelSoftSensingLSTM(nn.Module):
             optimizer.step()
 
             # detach() returns a new Tensor detached from the current graph (it will not require gradient) 
-            series_losses[i] = loss.detach().numpy()
+            series_losses[i] = loss.cpu().detach().numpy()
         
         return series_losses
     
@@ -158,7 +158,7 @@ class ParallelSoftSensingLSTM(nn.Module):
 
         self.eval() # Set the module in evaluation mode (equivalent self.train(False))
         with th.no_grad():
-            for i, x in tqdm(enumerate(X_series)): 
+            for i, x in enumerate(X_series): 
                 y_hat, _ = self(x) # (1, 3)
 
                 Y_hats[i] = y_hat
@@ -166,12 +166,12 @@ class ParallelSoftSensingLSTM(nn.Module):
         return Y_hats
 
     def validate(self, X_series, Y_series, loss_fn):
-        Y_hats = self.predict(X_series)
+        Y_hats = self.predict(X_series).to(self.device)
 
         assert Y_hats.shape == Y_series.shape
 
         with th.no_grad():
-            loss = loss_fn(Y_series, Y_hats).numpy()
+            loss = loss_fn(Y_series, Y_hats).cpu().numpy()
 
         return loss, Y_hats
     
@@ -275,14 +275,14 @@ class ParallelSoftSensingGRU(nn.Module):
         if history == None:
             history = {'training_losses': [], 'validation_losses': []}
 
-        progress_epoch_bar = tqdm(range(n_epochs))
+        progress_epoch_bar = tqdm(range(n_epochs), desc='training', leave=False)
         for epoch in progress_epoch_bar:
             self.train() # sets the module in training mode
             self.reset_states() # reset network hidden states at the beginning of each time-series
 
             # apply noise to input
-            X_noise = th.Tensor(np.random.normal(loc=0, scale=X_noise_scale, size=(X.shape))).detach()
-            Y_noise = th.Tensor(np.random.normal(loc=0, scale=Y_noise_scale, size=(Y.shape))).detach()
+            X_noise = th.Tensor(np.random.normal(loc=0, scale=X_noise_scale, size=(X.shape))).detach().to(self.device)
+            Y_noise = th.Tensor(np.random.normal(loc=0, scale=Y_noise_scale, size=(Y.shape))).detach().to(self.device)
 
             # learn on one time series
             series_losses = self._train_series(X + X_noise, Y + Y_noise, loss_fn, optimizer)
@@ -329,7 +329,7 @@ class ParallelSoftSensingGRU(nn.Module):
             optimizer.step()
 
             # detach() returns a new Tensor detached from the current graph (it will not require gradient) 
-            series_losses[i] = loss.detach().numpy()
+            series_losses[i] = loss.cpu().detach().numpy()
         
         return series_losses
     
@@ -339,7 +339,7 @@ class ParallelSoftSensingGRU(nn.Module):
 
         self.eval() # Set the module in evaluation mode (equivalent self.train(False))
         with th.no_grad():
-            for i, x in tqdm(enumerate(X_series)): 
+            for i, x in enumerate(X_series): 
                 y_hat, _ = self(x) # (1, 3)
 
                 Y_hats[i] = y_hat
@@ -347,12 +347,12 @@ class ParallelSoftSensingGRU(nn.Module):
         return Y_hats
 
     def validate(self, X_series, Y_series, loss_fn):
-        Y_hats = self.predict(X_series)
+        Y_hats = self.predict(X_series).to(self.device)
 
         assert Y_hats.shape == Y_series.shape
 
         with th.no_grad():
-            loss = loss_fn(Y_series, Y_hats).numpy()
+            loss = loss_fn(Y_series, Y_hats).cpu().numpy()
 
         return loss, Y_hats
     
