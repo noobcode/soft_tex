@@ -166,3 +166,8 @@ cython_debug/
 Giulia/
 progress/
 trainings/
+*.pdf
+*.svg
+*.png
+*.mp4
+*.pth

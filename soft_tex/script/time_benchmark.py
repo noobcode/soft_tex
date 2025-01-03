@@ -1,6 +1,5 @@
 import sys
-#sys.path.append('/home/carlo/Documents/Lavoro/PhD/Progetti/SoftTex')
-sys.path.append('../../..')
+sys.path.append('../..')
 
 import torch as th
 import numpy as np
@@ -22,11 +21,7 @@ from soft_tex.model.parallel_net import ParallelSoftSensingLSTM, ParallelSoftSen
 from soft_tex.common.aux_data import get_dataset_dict, exponential_moving_average
 
 
-data_dir_path = '../../../data/SoftTex/'
-device = th.device('cuda')
-
-print('Device used is:', device)
-
+data_dir_path = '../../data/SoftTex/'
 
 """
 1) LOAD DATASETS
@@ -95,21 +90,10 @@ X_tr_series = exponential_moving_average(X_tr_series, alpha=alpha)
 X_vl_series = exponential_moving_average(X_vl_series, alpha=alpha)
 
 # Scale training set and validation set and transform in Torch Tensors
-X_tr_series = th.tensor(observation_scaler.transform(X_tr_series), dtype=th.float32).to(device)
-Y_tr_series = th.tensor(output_scaler.transform(Y_tr_series), dtype=th.float32).to(device)
-
-X_vl_series = th.tensor(observation_scaler.transform(X_vl_series), dtype=th.float32).to(device)
-Y_vl_series = th.tensor(output_scaler.transform(Y_vl_series), dtype=th.float32).to(device)
+X_tr_series = th.tensor(observation_scaler.transform(X_tr_series), dtype=th.float32)
+Y_tr_series = th.tensor(output_scaler.transform(Y_tr_series), dtype=th.float32)
 
 
-"""
-3) DEFINE NETWORK, LOSS FUNCTION, AND OPTIMIZER
-"""
-#net = SoftSensingLSTM(input_size=6, output_size=3, hidden_size=64, num_layers=2, dropout=0.5, device=device)
-#net = ParallelSoftSensingGRU(input_size_1=3, input_size_2=3, output_size=3, 
-#                            hidden_size_1=50, hidden_size_2=50, num_layers=1, 
-#                            dropout=0.5, bidirectional=False, input_dropout_1=0.0, input_dropout_2=0.0, device=device)
-#print(net)
 def count_parameters(net):
     counter = 0
     for parameters in net.parameters():
@@ -138,80 +122,75 @@ def compute_dataset_inference_time(net, X, n_trials):
     
     return inference_time
 
-loss_fn = nn.MSELoss()
-#optimizer = opt.Adam(net.parameters(), lr=1e-4, weight_decay=1.2e-3, betas=(0.999, 0.999)) # betas=(0.9, 0.999)
-#weight_decay=1.2e-3 # curriculum 3.4
-
-
-X_vl_series, Y_vl_series = X_vl_series.unsqueeze(1), Y_vl_series.unsqueeze(1)
-
-# Model selection parameters
+"""
+3) BENCHMARK COMPUTING TIME FOR GPU AND CPU
+"""
 models = [ParallelSoftSensingGRU, ParallelSoftSensingLSTM]
 n_units = [8, 16, 32, 64]
-n_trials = 3
-n_epochs = 400
+devices = [th.device('cuda'), th.device('cpu')]
+n_trials = 10
 
-results_dict = {model.__name__: dict() for model in models}
-for model in results_dict:
+cpu_results_dict = {model.__name__: dict() for model in models}
+
+for model in cpu_results_dict:
     for n_unit in n_units:
-        results_dict[model][n_unit] = {}
-        results_dict[model][n_unit]['histories'] = []
+        cpu_results_dict[model][n_unit] = {}
 
-# count parameters
+# CPU: compute inference time for whole dataset execution
+device = th.device('cpu')
+print("Using", device)
 for model_class in models:
     for n_unit in n_units:
-        net = model_class(input_size_1=3, input_size_2=3, output_size=3, hidden_size_1=n_unit, hidden_size_2=n_unit, num_layers=1)
+        # create network
+        net = model_class(input_size_1=3, input_size_2=3, output_size=3, 
+                            hidden_size_1=n_unit, hidden_size_2=n_unit, num_layers=1)
+    
+        # device transfer
         net.to(device)
-        results_dict[model_class.__name__][n_unit]['parameters_count'] = count_parameters(net)
+        X_tr_series = X_tr_series.to(device)
 
-# compute inference time for whole dataset execution
-for model_class in models:
-    for n_unit in n_units:
-        net = model_class(input_size_1=3, input_size_2=3, output_size=3, hidden_size_1=n_unit, hidden_size_2=n_unit, num_layers=1)
-        net.to(device)
+        # compute inference time on training set
         inference_time = compute_dataset_inference_time(net, X_tr_series.unsqueeze(1), n_trials)
+        cpu_results_dict[model_class.__name__][n_unit]['inference_time'] = inference_time
+        # compute number of parameters
+        cpu_results_dict[model_class.__name__][n_unit]['parameters_count'] = count_parameters(net)
 
-        results_dict[model_class.__name__][n_unit]['inference_time'] = inference_time
-        print("%s, %d units: %.4f +- %.4f" % (model_class.__name__, n_unit, inference_time['mean'], inference_time['std']))
+# GPU: compute inference time for whole dataset execution
+device = th.device('cuda')
+print("Using", device)
 
-# training and validation with same hyperparameters
+gpu_results_dict = {model.__name__: dict() for model in models}
+
+for model in gpu_results_dict:
+    for n_unit in n_units:
+        gpu_results_dict[model][n_unit] = {}
+
 for model_class in models:
     for n_unit in n_units:
-        for trial in range(n_trials):
-            net = model_class(input_size_1=3, 
-                              input_size_2=3, 
-                              output_size=3, 
-                              hidden_size_1=n_unit, 
-                              hidden_size_2=n_unit, 
-                              num_layers=1, device=device)
-            net.to(device)
-            optimizer = opt.Adam(net.parameters(), lr=1e-4, weight_decay=1e-4, betas=(0.9, 0.999)) # betas=(0.9, 0.999)
+        # create network
+        net = model_class(input_size_1=3, input_size_2=3, output_size=3, 
+                            hidden_size_1=n_unit, hidden_size_2=n_unit, num_layers=1)
+    
+        # device transfer
+        net.to(device)
+        X_tr_series = X_tr_series.to(device)
 
-            # create dataset with randomized sequence length
-            X_unfold, Y_unfold = net.unfold_dataset(X=X_tr_series, Y=Y_tr_series, sequence_len=50, sequence_shift=50)
-            X_unfold = X_unfold.to(device)
-            Y_unfold = Y_unfold.to(device)
-            X_vl_series = X_vl_series.to(device)
-            Y_vl_series = Y_vl_series.to(device)
-
-            # fit for some epochs
-            tic = time.time()
-            history = net.fit(X_unfold, Y_unfold, loss_fn, optimizer, n_epochs, 
-                            validation_data=(X_vl_series, Y_vl_series), 
-                            history=None, 
-                            X_noise_scale=0, # era 2e-3 per 3.9
-                            Y_noise_scale=0)
-            toc = time.time()
-            history['training_time'] = toc - tic
-            print("%s, %d units, TR loss %.4f, VL loss %.4f" % (model_class.__name__, n_unit, history['training_losses'][-1],
-                                                history['validation_losses'][-1]))
-            
-            # save trial results
-            results_dict[model_class.__name__][n_unit]['histories'].append(history)
+        # compute inference time on training set
+        inference_time = compute_dataset_inference_time(net, X_tr_series.unsqueeze(1), n_trials)
+        gpu_results_dict[model_class.__name__][n_unit]['inference_time'] = inference_time
+        # compute number of parameters
+        gpu_results_dict[model_class.__name__][n_unit]['parameters_count'] = count_parameters(net)
 
 
-# save
-results_path = '../../../trainings/model_selection.pth'
+"""
+4) SAVE benchmark
+"""
+results_dict = {
+    'cpu': cpu_results_dict,
+    'gpu': gpu_results_dict}
+
+results_path = 'time_benchmark.pth'
+
 th.save(results_dict, results_path)
 
-print("Model selection results saved at", results_path)
+print("Results saved at", results_path)

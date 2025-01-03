@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/home/carlo/Documents/Lavoro/PhD/Progetti/SoftTex')
+sys.path.append('../../../../SoftTex')
 
 import torch as th
 import numpy as np
@@ -13,16 +13,16 @@ import pandas as pd
 import scipy.signal as scs
 from tqdm import tqdm
 import seaborn as sns
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.preprocessing import StandardScaler
 from datetime import datetime
 
 # soft_tex imports
-from soft_tex.model.parallel_net import ParallelSoftSensingLSTM, ParallelSoftSensingGRU
+from soft_tex.model.parallel_net import ParallelSoftSensingLSTM
 from soft_tex.common.aux_data import get_dataset_dict, exponential_moving_average
 
 
-data_dir_path = '/home/carlo/Documents/Lavoro/PhD/Progetti/SoftTex/data/SoftTex/'
-device = th.device('cpu')
+data_dir_path = '../../../data/SoftTex/'
+device = th.device('cuda')
 
 print('Device used is:', device)
 
@@ -105,9 +105,10 @@ Y_vl_series = th.tensor(output_scaler.transform(Y_vl_series), dtype=th.float32).
 3) DEFINE NETWORK, LOSS FUNCTION, AND OPTIMIZER
 """
 #net = SoftSensingLSTM(input_size=6, output_size=3, hidden_size=64, num_layers=2, dropout=0.5, device=device)
-net = ParallelSoftSensingGRU(input_size_1=3, input_size_2=3, output_size=3, 
-                            hidden_size_1=50, hidden_size_2=50, num_layers=1, 
-                            dropout=0.5, bidirectional=False, input_dropout_1=0.0, input_dropout_2=0.0, device=device)
+net = ParallelSoftSensingLSTM(input_size_1=3, input_size_2=3, output_size=3, 
+                            hidden_size_1=16, hidden_size_2=16, num_layers=1, 
+                            dropout=0.5, bidirectional=False, input_dropout_1=0.0, 
+                            input_dropout_2=0.0, device=device)
 print(net)
 
 loss_fn = nn.MSELoss()
@@ -122,17 +123,16 @@ optimizer = opt.Adam(net.parameters(), lr=1e-4, weight_decay=1.2e-3, betas=(0.99
 sequence_shift_factors = [1] #[0.9, 1] per 3.9 e 3.4
 history = None
 n_epochs = 3
-n_randomizations = 2#150 # 150 per 3.9, 180 per 3.4
+n_randomizations = 120 # 150 per 3.9, 180 per 3.4
 
 X_vl_series, Y_vl_series = X_vl_series.unsqueeze(1), Y_vl_series.unsqueeze(1)
 
 for i in tqdm(range(n_randomizations), desc='Randomizations'): 
     # sample sequence parameters (50 e i 20 per 3.9)
-    #sequence_len = 20 + 5 * int(i / 20) # curriculum 3.4
-    sequence_len = 10 + 5 * int(i / 20) # curriculum 3.4
-    #sequence_len = 40
+    sequence_len = 20 + 10 * int(i / 20) # curriculum 3.4
+    sequence_len = min(sequence_len, 50)
+    #sequence_len = 10 + 5 * int(i / 20) # curriculum 3.4
 
-    #20 if i < 20 else np.random.choice(sequence_lengths)
     sequence_shift = int(np.random.choice(sequence_shift_factors) * sequence_len)
 
     # create dataset with randomized sequence length
@@ -143,7 +143,7 @@ for i in tqdm(range(n_randomizations), desc='Randomizations'):
     history = net.fit(X_unfold, Y_unfold, loss_fn, optimizer, n_epochs, 
                         validation_data=(X_vl_series, Y_vl_series), 
                         history=history, 
-                        X_noise_scale=(1e-1, 1e-1, 1e-1, 2e-3, 2e-3, 2e-3), # era 2e-3 per 3.9
+                        X_noise_scale=(1e-1, 1e-1, 1e-1, 2e-2, 2e-2, 2e-2), # era 2e-3 per 3.9
                         Y_noise_scale=3e-2)
         
 """
@@ -151,19 +151,17 @@ for i in tqdm(range(n_randomizations), desc='Randomizations'):
 """
 # save model and training history
 today = datetime.today().strftime("date_%Y.%m.%d_h_%H.%M")
-results_path = '/home/carlo/Documents/Lavoro/PhD/Progetti/SoftTex/trainings/'
+results_path = '../../../trainings/'
 results_path += 'training' + '_' + today + '.pth'
 #history_path = model_path + '_history'
 
 results_dict = {
-    'net': net,
+    'net': net.to('cpu'),
     'optimizer': optimizer,
     'history': history
 }
 
 th.save(results_dict, results_path)
-#np.save(history_path, history)
 
 print("Model saved at:", results_path)
-#print("History saved at:", history_path + '.npy')
 
