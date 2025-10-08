@@ -18,4 +18,4 @@ If you found this useful, you could cite the article as follows:
 ```
 
 ### 📬 Contacts
-For questions or collaborations regarding Machine Learning-based proprioception, contact [@noobcode](https://github.com/noobcode).
+For questions or collaborations regarding Machine Learning-based proprioception, contact [@carlo-alessi](https://github.com/carlo-alessi).
